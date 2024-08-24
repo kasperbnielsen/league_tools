@@ -1,163 +1,9 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
-import { useModeStore } from "~/stores/player";
-const props = defineProps<{
-  queue: number;
+import { Stats } from "~/types";
+defineProps<{
+  stats?: Stats[];
+  extraStats: () => void;
 }>();
-const statsData = ref<
-  {
-    _id: { championId: number };
-    totalKills: number;
-    totalDeaths: number;
-    totalAssists: number;
-    totalMatches: number;
-    totalWins: number;
-    totalCreeps: number;
-    totalGold: number;
-    totalDamageDealt: number;
-    totalDamageTaken: number;
-    totalStructureDamage: number;
-    totalTime: number;
-  }[]
->();
-const config = useRuntimeConfig();
-const SERVER_HOST = config.public.SERVER_HOST;
-const router = useRouter();
-const route = useRoute();
-const { profileData } = storeToRefs(useModeStore());
-
-async function getStats(refresh: boolean) {
-  if (!profileData.value?.puuid.length) {
-    return;
-  }
-
-  const url = refresh
-    ? `${SERVER_HOST}/api/championstats/${profileData.value.puuid}?refresh=true`
-    : `${SERVER_HOST}/api/championstats/${profileData.value.puuid}`;
-  const data: {
-    _id: { championId: number; gameMode: number };
-    totalKills: number;
-    totalDeaths: number;
-    totalAssists: number;
-    totalMatches: number;
-    totalWins: number;
-    totalCreeps: number;
-    totalGold: number;
-    totalDamageDealt: number;
-    totalDamageTaken: number;
-    totalStructureDamage: number;
-    totalTime: number;
-  }[] = await fetch(url, { method: "get" }).then((res) => res.json());
-
-  if (props.queue === 420) {
-    statsData.value = data.filter(
-      (val: {
-        _id: { championId: number; gameMode: number };
-        totalKills: number;
-        totalDeaths: number;
-        totalAssists: number;
-        totalMatches: number;
-        totalWins: number;
-        totalCreeps: number;
-        totalGold: number;
-        totalDamageDealt: number;
-        totalDamageTaken: number;
-        totalStructureDamage: number;
-        totalTime: number;
-      }) => val._id.gameMode === 420
-    );
-  } else if (props.queue === 440) {
-    statsData.value = data.filter(
-      (val: {
-        _id: { championId: number; gameMode: number };
-        totalKills: number;
-        totalDeaths: number;
-        totalAssists: number;
-        totalMatches: number;
-        totalWins: number;
-        totalCreeps: number;
-        totalGold: number;
-        totalDamageDealt: number;
-        totalDamageTaken: number;
-        totalStructureDamage: number;
-        totalTime: number;
-      }) => val._id.gameMode === 440
-    );
-  } else if (props.queue === 400) {
-    const newArr: {
-      _id: { championId: number; gameMode: number };
-      totalKills: number;
-      totalDeaths: number;
-      totalAssists: number;
-      totalMatches: number;
-      totalWins: number;
-      totalCreeps: number;
-      totalGold: number;
-      totalDamageDealt: number;
-      totalDamageTaken: number;
-      totalStructureDamage: number;
-      totalTime: number;
-    }[] = [];
-    data
-      .filter((val) => val._id.gameMode === 420 || val._id.gameMode === 440)
-      .forEach(
-        (val: {
-          _id: { championId: number; gameMode: number };
-          totalKills: number;
-          totalDeaths: number;
-          totalAssists: number;
-          totalMatches: number;
-          totalWins: number;
-          totalCreeps: number;
-          totalGold: number;
-          totalDamageDealt: number;
-          totalDamageTaken: number;
-          totalStructureDamage: number;
-          totalTime: number;
-        }) => {
-          const ind = newArr.findIndex(
-            (element) => element._id.championId === val._id.championId
-          );
-          if (ind !== -1) {
-            newArr[ind] = {
-              _id: {
-                championId: val._id.championId,
-                gameMode: val._id.gameMode,
-              },
-              totalKills: newArr[ind].totalKills + val.totalKills,
-              totalDeaths: newArr[ind].totalDeaths + val.totalDeaths,
-              totalAssists: newArr[ind].totalAssists + val.totalAssists,
-              totalMatches: newArr[ind].totalMatches + val.totalMatches,
-              totalWins: newArr[ind].totalWins + val.totalWins,
-              totalCreeps: newArr[ind].totalCreeps + val.totalCreeps,
-              totalGold: newArr[ind].totalGold + val.totalGold,
-              totalDamageDealt:
-                newArr[ind].totalDamageDealt + val.totalDamageDealt,
-              totalDamageTaken:
-                newArr[ind].totalDamageTaken + val.totalDamageTaken,
-              totalStructureDamage:
-                newArr[ind].totalStructureDamage + val.totalStructureDamage,
-              totalTime: newArr[ind].totalTime + val.totalTime,
-            };
-          } else {
-            newArr.push(val);
-          }
-        }
-      );
-    statsData.value = newArr;
-  }
-
-  return data;
-}
-
-getStats(true);
-watch(profileData, () => {
-  getStats(true);
-});
-
-watch(statsData, () => {
-  console.log("hello stats");
-});
 </script>
 <template>
   <div id="nav-tabContent" class="tab-content">
@@ -168,55 +14,52 @@ watch(statsData, () => {
       role="tabpanel"
     >
       <div
-        v-for="(stats, statsIndex) of statsData"
+        v-for="(stat, statsIndex) of stats"
         :key="statsIndex"
         :class="statsIndex < 13 ? 'stats__div' : ''"
       >
         <div v-if="statsIndex < 13" class="stats__firstdiv">
           <img
             class="stats__firstdiv__img"
-            :src="`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${stats._id.championId}.png`"
+            :src="`https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${stat._id.championId}.png`"
           />
         </div>
         <div v-if="statsIndex < 13" class="stats__secondsdiv">
           <p class="stats__secondsdiv__kda1">
             {{
               Math.ceil(
-                (stats.totalKills + stats.totalAssists) / stats.totalDeaths
+                (stat.totalKills + stat.totalAssists) / stat.totalDeaths
               )
                 ? (
-                    (stats.totalKills + stats.totalAssists) /
-                    (stats.totalDeaths ? stats.totalDeaths : 1)
+                    (stat.totalKills + stat.totalAssists) /
+                    (stat.totalDeaths ? stat.totalDeaths : 1)
                   ).toFixed(2)
                 : "0.00"
             }}
             KDA
           </p>
           <p class="stats__secondsdiv__kda2">
-            {{ (stats.totalKills / stats.totalMatches).toFixed(1) }} /
-            {{ (stats.totalDeaths / stats.totalMatches).toFixed(1) }}
+            {{ (stat.totalKills / stat.totalMatches).toFixed(1) }} /
+            {{ (stat.totalDeaths / stat.totalMatches).toFixed(1) }}
             /
-            {{ (stats.totalAssists / stats.totalMatches).toFixed(1) }}
+            {{ (stat.totalAssists / stat.totalMatches).toFixed(1) }}
           </p>
         </div>
         <div v-if="statsIndex < 13" class="stats__thirddiv">
           <p class="stats__thirddiv__winrate">
             {{
-              stats.totalWins
-                ? ((stats.totalWins / stats.totalMatches) * 100).toFixed(0)
+              stat.totalWins
+                ? ((stat.totalWins / stat.totalMatches) * 100).toFixed(0)
                 : 0
             }}%
           </p>
           <p class="stats__thirddiv__totalgames">
-            {{ stats.totalMatches }} Matches
+            {{ stat.totalMatches }} Matches
           </p>
         </div>
       </div>
       <div class="stats__extra">
-        <button
-          class="stats__extra__button"
-          @click="router.push(`${route.fullPath}/champions/`)"
-        >
+        <button class="stats__extra__button" @click="extraStats">
           Show more + extra stats
         </button>
       </div>

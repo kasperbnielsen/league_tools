@@ -5,14 +5,18 @@ import { ref } from "vue";
 import MatchList from "~/components/match/MatchList.vue";
 
 import { useModeStore } from "@/stores/player";
+import { Stats } from "~/types";
 const config = useRuntimeConfig();
 
 const { playerData, profileData } = storeToRefs(useModeStore());
 
 const playerProfileData = ref();
+const extraStats = ref<boolean>(false);
+const activeTab = ref<0 | 1 | 2>(0);
 
 const SERVER_HOST = config.public.SERVER_HOST;
 const route = useRoute();
+const router = useRouter();
 const matchList = ref();
 const rateLimit = ref(false);
 
@@ -39,29 +43,69 @@ const id = await fetch(url, { method: "GET" })
   .then((res) => res.json())
   .catch((err) => console.error(err));
 
-console.log(id);
-
 const myData: { name: string; puuid: string } = {
   name: route.params.username.toString(),
   puuid: id.puuid.toString(),
 };
 
-console.log(route.params.username.toString(), id.puuid);
-
 async function showMore() {
   await fetchData(matchList.value.data.length / 10 + 1);
 }
 
-const statsData = ref();
+const statsData = ref<Stats[][]>([]);
 
-async function getStats(puuid: string, refresh: boolean) {
+async function getStats(refresh: boolean) {
+  if (!profileData.value?.puuid.length) {
+    return;
+  }
+
   const url = refresh
-    ? `${SERVER_HOST}/api/championstats/${puuid}?refresh=true`
-    : `${SERVER_HOST}/api/championstats/${puuid}`;
-  const data = await fetch(url, { method: "get" }).then((res) => res.json());
-  statsData.value = data;
+    ? `${SERVER_HOST}/api/championstats/${profileData.value.puuid}?refresh=true`
+    : `${SERVER_HOST}/api/championstats/${profileData.value.puuid}`;
+  const data: Stats[] = await fetch(url, { method: "get" }).then((res) =>
+    res.json()
+  );
+
+  statsData.value[0] = data.filter((val: Stats) => val._id.gameMode === 420);
+  statsData.value[1] = data.filter((val: Stats) => val._id.gameMode === 440);
+  const newArr: Stats[] = [];
+  data
+    .filter((val) => val._id.gameMode === 420 || val._id.gameMode === 440)
+    .forEach((val: Stats) => {
+      const ind = newArr.findIndex(
+        (element) => element._id.championId === val._id.championId
+      );
+      if (ind !== -1) {
+        newArr[ind] = {
+          _id: {
+            championId: val._id.championId,
+            gameMode: val._id.gameMode,
+          },
+
+          totalKills: newArr[ind].totalKills + val.totalKills,
+          totalDeaths: newArr[ind].totalDeaths + val.totalDeaths,
+          totalAssists: newArr[ind].totalAssists + val.totalAssists,
+          totalMatches: newArr[ind].totalMatches + val.totalMatches,
+          totalWins: newArr[ind].totalWins + val.totalWins,
+          totalCreeps: newArr[ind].totalCreeps + val.totalCreeps,
+          totalGold: newArr[ind].totalGold + val.totalGold,
+          totalDamageDealt: newArr[ind].totalDamageDealt + val.totalDamageDealt,
+          totalDamageTaken: newArr[ind].totalDamageTaken + val.totalDamageTaken,
+          totalStructureDamage:
+            newArr[ind].totalStructureDamage + val.totalStructureDamage,
+          totalTime: newArr[ind].totalTime + val.totalTime,
+        };
+      } else {
+        newArr.push(val);
+      }
+    });
+  statsData.value[2] = newArr;
+
   return data;
 }
+watch(profileData, () => {
+  getStats(true);
+});
 
 watch(statsData, () => {
   console.log("hello stats");
@@ -132,99 +176,106 @@ async function fetchData(matchLimit: number) {
     .catch((err) => console.error(err));
 
   playerProfileData.value = fetchedData2;
-  playerData.value = await fetchedData2;
+  playerData.value = fetchedData2;
 }
 
-fetchData(1).then(() => {
-  getStats(myData.puuid, false);
-});
+fetchData(1);
+getStats(true);
 </script>
 <template>
   <div class="outerbody">
     <ProfileDiv />
-    <div class="body">
-      <div class="stats">
-        <nav>
-          <div id="nav-tab" class="nav nav-tabs" role="tablist">
-            <button
-              id="nav-home-tab"
-              aria-controls="nav-home"
-              aria-selected="true"
-              class="nav-link active stats__navitem"
-              data-bs-target="#nav-home"
-              data-bs-toggle="tab"
-              role="tab"
-              type="button"
-            >
-              Total
-            </button>
-            <button
-              id="nav-profile-tab"
-              aria-controls="nav-profile"
-              aria-selected="false"
-              class="nav-link stats__navitem"
-              data-bs-target="#nav-profile"
-              data-bs-toggle="tab"
-              role="tab"
-              type="button"
-            >
-              Ranked Solo
-            </button>
-            <button
-              id="nav-contact-tab"
-              aria-controls="nav-contact"
-              aria-selected="false"
-              class="nav-link stats__navitem"
-              data-bs-target="#nav-contact"
-              data-bs-toggle="tab"
-              role="tab"
-              type="button"
-            >
-              Ranked Flex
-            </button>
-          </div>
-        </nav>
-        <div id="nav-tabContent" class="tab-content">
-          <div
-            id="nav-home"
-            aria-labelledby="nav-home-tab"
-            class="tab-pane fade"
-            role="tabpanel"
-          >
-            <MatchSide :queue="400" />
-          </div>
-          <div
-            id="nav-profile"
-            aria-labelledby="nav-profile-tab"
-            class="tab-pane fade"
-            role="tabpanel"
-          >
-            <MatchSide :queue="420" />
-          </div>
-          <div
-            id="nav-contact"
-            aria-labelledby="nav-contact-tab"
-            class="tab-pane fade"
-            role="tabpanel"
-          >
-            <MatchSide :queue="440" />
+    <div v-if="!extraStats">
+      <div class="body">
+        <div class="stats">
+          <nav>
+            <div id="nav-tab" class="nav nav-tabs" role="tablist">
+              <button
+                class="nav-link stats__navitem"
+                :class="{ active: activeTab === 0 }"
+                type="button"
+                @click="activeTab = 0"
+              >
+                Total
+              </button>
+              <button
+                class="nav-link stats__navitem"
+                :class="{ active: activeTab === 1 }"
+                type="button"
+                @click="activeTab = 1"
+              >
+                Ranked Solo
+              </button>
+              <button
+                class="nav-link stats__navitem"
+                :class="{ active: activeTab === 2 }"
+                type="button"
+                @click="activeTab = 2"
+              >
+                Ranked Flex
+              </button>
+            </div>
+          </nav>
+          <div id="nav-tabContent" class="tab-content">
+            <div v-if="activeTab == 0">
+              <MatchSide
+                :extra-stats="
+                  () => {
+                    extraStats = true;
+                    router.beforeResolve((to) =>
+                      extraStats ? (extraStats = false) : router.go(0)
+                    );
+                  }
+                "
+                :stats="statsData[2]"
+              />
+            </div>
+            <div v-else-if="activeTab == 1">
+              <MatchSide
+                :extra-stats="
+                  () => {
+                    extraStats = true;
+                    router.beforeResolve((to) =>
+                      extraStats ? (extraStats = false) : router.go(0)
+                    );
+                  }
+                "
+                :stats="statsData[0]"
+              />
+            </div>
+            <div v-else>
+              <MatchSide
+                :extra-stats="
+                  () => {
+                    extraStats = true;
+                    router.beforeResolve((to) =>
+                      extraStats ? (extraStats = false) : router.go(0)
+                    );
+                  }
+                "
+                :stats="statsData[1]"
+              />
+            </div>
           </div>
         </div>
-      </div>
-      <div v-if="matchList?.data" class="result">
-        <MatchList
-          :match-list="matchList?.data"
-          :region="route.params.region.toString()"
-          :user="myData"
-          :win-arr="winArr"
-        />
-        <button class="result__showmore" @click="showMore()">
-          <font-awesome-icon
-            class="result__showmore__icon"
-            :icon="['fas', 'caret-down']"
+        <div v-if="matchList?.data" class="result">
+          <MatchList
+            :match-list="matchList?.data"
+            :region="route.params.region.toString()"
+            :user="myData"
+            :win-arr="winArr"
           />
-        </button>
+          <button class="result__showmore" @click="showMore()">
+            <font-awesome-icon
+              class="result__showmore__icon"
+              :icon="['fas', 'caret-down']"
+            />
+          </button>
+        </div>
       </div>
+    </div>
+    <div v-else class="statsExtra">
+      <StatsExtra :stats="statsData[2]" />
     </div>
   </div>
 </template>
@@ -232,6 +283,10 @@ fetchData(1).then(() => {
 * {
   color: white;
   font-family: Montserrat;
+}
+
+.statsExtra {
+  width: 100%;
 }
 .nav {
   border-bottom-color: black;
@@ -246,6 +301,7 @@ fetchData(1).then(() => {
 
 .outerbody {
   margin: 3rem;
+  width: 100%;
 }
 
 .result {

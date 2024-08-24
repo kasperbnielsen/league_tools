@@ -35,7 +35,7 @@ function getImagePath(id: number): string {
     }
   });
 
-  return fullPath.substring(43, fullPath.length - 1);
+  return fullPath.substring(43, fullPath.length);
 }
 </script>
 <template>
@@ -64,7 +64,9 @@ function getImagePath(id: number): string {
           </p>
           <p v-if="participant?.puuid === user.puuid">
             {{
-              new Date(match?.info?.gameStartTimestamp).toString().substr(3, 8)
+              new Date(match?.info?.gameStartTimestamp)
+                .toString()
+                .substring(3, 8)
             }}
           </p>
           <p v-if="participant?.puuid === user.puuid">
@@ -240,9 +242,10 @@ function getImagePath(id: number): string {
                 {{ player?.summonerName }}
               </p>
               <p v-else>
-                <a :href="`/player/${region}/${player?.summonerName}`">{{
-                  player?.summonerName
-                }}</a>
+                <a
+                  :href="`/player/${region}/${player?.summonerName}/${player?.riotIdTagline}`"
+                  >{{ player?.summonerName }}</a
+                >
               </p>
             </div>
           </div>
@@ -290,7 +293,7 @@ function getImagePath(id: number): string {
         />
       </button>
     </div>
-    <MatchExtra v-if="openExtra" :match="match" />
+    <MatchExtra v-if="openExtra" :match="match" :profileUser="user" />
   </div>
 </template>
 <style scoped lang="scss">

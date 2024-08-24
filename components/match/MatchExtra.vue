@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import items from "~/assets/items";
 import spells from "~/assets/summonerSpells";
-defineProps<{
+const props = defineProps<{
   match: any;
+  profileUser: { name: string; puuid: string };
 }>();
+
+const total = ref<number[]>([0, 0]);
 
 function getSummonerSpell(id: number): string {
   let fullPath = "";
@@ -16,19 +18,36 @@ function getSummonerSpell(id: number): string {
   });
   return fullPath;
 }
+
+for (let i = 0; i < props.match.info.participants.length; i++) {
+  if (i < 5) {
+    total.value[0] += props.match.info.participants[i].kills;
+  } else {
+    total.value[1] += props.match.info.participants[i].kills;
+  }
+}
+
+console.log(props.profileUser.name);
+console.log(props.match.info.participants[0].summonerName);
+
+watch(total, () => {});
 </script>
 <template>
-  <div class="details">
-    <p>asd</p>
-  </div>
   <div class="users">
     <div
+      v-for="(user, userIndex) of match.info.participants"
       :key="userIndex"
       class="users__div"
-      v-for="(user, userIndex) of match.info.participants"
-      :style="
-        userIndex < 5 ? 'background-color: blue' : 'background-color: darkred'
-      "
+      :style="{
+        backgroundColor:
+          profileUser.name.toLowerCase() == user.summonerName.toLowerCase()
+            ? userIndex < 5
+              ? 'blue'
+              : 'red'
+            : userIndex < 5
+            ? '#ADD8E6'
+            : '#FF7F7F',
+      }"
     >
       <img
         class="users__champion"
@@ -44,21 +63,31 @@ function getSummonerSpell(id: number): string {
           :src="getSummonerSpell(user.summoner2Id)"
         />
       </div>
-      <p class="users__name">
+      <a
+        class="users__name"
+        :href="`/player/europe/${user.summonerName}/${user.riotIdTagline}`"
+      >
         {{ user.summonerName }}
-      </p>
-      <p class="users__kda">
-        {{ user.kills }} / {{ user.deaths }} / {{ user.assists }}
-      </p>
+      </a>
+      <div class="users__stats">
+        <p class="users__kda">
+          {{ user.kills }} / {{ user.deaths }} / {{ user.assists }} ({{
+            userIndex < 5
+              ? (((user.kills + user.assists) / total[0]) * 100).toFixed(0)
+              : (((user.kills + user.assists) / total[1]) * 100).toFixed(0)
+          }}%)
+        </p>
+      </div>
     </div>
   </div>
 </template>
 <style scoped lang="scss">
 .users {
   margin-right: 2rem;
+  width: 50rem;
   &__div {
     padding: 0.5rem;
-
+    color: rgb(88, 80, 80);
     display: flex;
   }
   &__name {
@@ -76,6 +105,15 @@ function getSummonerSpell(id: number): string {
   &__summonerSpell {
     width: 1rem;
     height: 1rem;
+  }
+  &__kda {
+    font-size: small;
+  }
+  &__stats {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
   }
 }
 
